@@ -1,0 +1,342 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #0f1419;
+  --surface: #1a222c;
+  --surface-hover: #232d39;
+  --border: #2f3d4d;
+  --text: #e8eef4;
+  --text-muted: #8b9bab;
+  --accent: #3d9cf0;
+  --accent-hover: #5caeff;
+  --danger: #e85d6a;
+  --danger-hover: #ff7a86;
+  --radius: 12px;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  font-family: "IBM Plex Sans KR", system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: radial-gradient(ellipse 80% 60% at 50% -20%, #1f3a5f 0%, transparent 55%),
+    var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 3rem;
+}
+
+.app__header {
+  margin-bottom: 1.25rem;
+}
+
+.app__title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.calendar-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.65rem 0.65rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.25rem;
+}
+
+.calendar-bar__center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.calendar-bar__date-input {
+  box-sizing: border-box;
+  /* 날짜(YYYY-MM-DD) + 캘린더 아이콘만 감싸도록 너비 제한 */
+  width: 9.25rem;
+  max-width: 100%;
+  padding: 0.35rem 0.4rem 0.35rem 0.45rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  color-scheme: dark;
+}
+
+/* Chromium/Safari: 날짜 편집 영역·아이콘 사이 불필요한 공백 축소 */
+.calendar-bar__date-input::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+.calendar-bar__date-input::-webkit-datetime-edit-text {
+  padding: 0 0.05em;
+}
+
+.calendar-bar__date-input::-webkit-calendar-picker-indicator {
+  margin: 0;
+  padding: 0 0 0 0.2rem;
+  cursor: pointer;
+  opacity: 1;
+}
+
+.calendar-bar__date-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(61, 156, 240, 0.2);
+}
+
+.calendar-bar__label {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-align: center;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.btn--icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  padding: 0;
+  align-self: center;
+  font-size: 1.35rem;
+  line-height: 1;
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn--icon:hover {
+  background: #2a3543;
+  color: var(--text);
+}
+
+.todo-form__hint {
+  margin: -0.2rem 0 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.todo-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.25rem;
+}
+
+.todo-form__label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.todo-form__row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.todo-form__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65rem 0.85rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.todo-form__input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(61, 156, 240, 0.25);
+}
+
+.todo-form__input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.btn {
+  font: inherit;
+  font-weight: 500;
+  font-size: 0.9rem;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn--primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.4rem 0.65rem;
+}
+
+.btn--ghost:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.btn--danger {
+  background: transparent;
+  color: var(--danger);
+  padding: 0.4rem 0.65rem;
+}
+
+.btn--danger:hover {
+  color: var(--danger-hover);
+  background: rgba(232, 93, 106, 0.12);
+}
+
+.todo-section {
+  position: relative;
+}
+
+.todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  animation: todo-in 0.25s ease;
+}
+
+@keyframes todo-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.todo-item__text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.975rem;
+  word-break: break-word;
+}
+
+.todo-item__actions {
+  display: flex;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.todo-item__edit-row {
+  display: flex;
+  flex: 1;
+  gap: 0.5rem;
+  min-width: 0;
+  align-items: center;
+}
+
+.todo-item__edit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.65rem;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  outline: none;
+}
+
+.todo-item__edit-save {
+  background: var(--accent);
+  color: #fff;
+  padding: 0.45rem 0.75rem;
+}
+
+.todo-item__edit-save:hover {
+  background: var(--accent-hover);
+}
+
+.todo-item__edit-cancel {
+  padding: 0.45rem 0.65rem;
+}
+
+.todo-loading {
+  margin: 2rem 0 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.todo-empty {
+  margin: 2rem 0 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}

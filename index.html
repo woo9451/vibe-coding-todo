@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>할 일 목록</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <h1 class="app__title">할 일 목록</h1>
+      </header>
+
+      <div class="calendar-bar" aria-label="날짜 선택">
+        <button type="button" class="btn btn--icon calendar-bar__prev" id="calendar-prev" aria-label="이전 날짜">
+          ‹
+        </button>
+        <div class="calendar-bar__center">
+          <label class="visually-hidden" for="todo-calendar-input">표시할 날짜</label>
+          <input
+            type="date"
+            id="todo-calendar-input"
+            class="calendar-bar__date-input"
+          />
+          <p class="calendar-bar__label" id="calendar-label" aria-live="polite"></p>
+        </div>
+        <button type="button" class="btn btn--icon calendar-bar__next" id="calendar-next" aria-label="다음 날짜">
+          ›
+        </button>
+      </div>
+
+      <form class="todo-form" id="todo-form" autocomplete="off">
+        <label class="todo-form__label" for="todo-input">새 할 일</label>
+        <p class="todo-form__hint">선택한 날짜에 할 일을 추가합니다.</p>
+        <div class="todo-form__row">
+          <input
+            id="todo-input"
+            name="todo"
+            class="todo-form__input"
+            type="text"
+            maxlength="280"
+            placeholder="무엇을 하시겠어요?"
+            required
+          />
+          <button class="btn btn--primary" type="submit">추가</button>
+        </div>
+      </form>
+
+      <section class="todo-section">
+        <h2 class="visually-hidden">목록</h2>
+        <p class="todo-loading" id="todo-loading" aria-live="polite">목록을 불러오는 중…</p>
+        <ul class="todo-list" id="todo-list" aria-live="polite" hidden></ul>
+        <p class="todo-empty" id="todo-empty" hidden>선택한 날짜에 할 일이 없습니다.</p>
+      </section>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
