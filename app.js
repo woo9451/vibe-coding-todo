@@ -1,28 +1,19 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  get,
-  push,
-  set,
-  onValue,
-  remove,
-  update,
-} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
+/**
+ * 백엔드 API 베이스 URL.
+ * 라우터가 `app.use("/todos", router)` 처럼 마운트돼 있다고 가정합니다.
+ * 다른 경로(예: "/api/todos")이면 아래 한 줄만 바꿔주세요.
+ */
+const API_BASE = "http://localhost:5000/todos";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyA_UGBxN6qJDM8GTbBRyVXmVxTz7jmgaMQ",
-  authDomain: "seunghoon-todo-backend.firebaseapp.com",
-  projectId: "seunghoon-todo-backend",
-  storageBucket: "seunghoon-todo-backend.firebasestorage.app",
-  messagingSenderId: "588409588951",
-  appId: "1:588409588951:web:940cc000938f14b6883492",
-  databaseURL: "https://seunghoon-todo-backend-default-rtdb.firebaseio.com",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const todosRef = ref(db, "todos");
+/**
+ * @typedef {Object} Todo
+ * @property {string} _id
+ * @property {string} content
+ * @property {boolean} [isCompleted]
+ * @property {string} [date]
+ * @property {string} [createdAt]
+ * @property {string} [updatedAt]
+ */
 
 function ymdFromDate(d) {
   const y = d.getFullYear();
@@ -60,46 +51,94 @@ function isYMD(v) {
   return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.trim());
 }
 
+/**
+ * fetch 응답을 통일된 방식으로 처리합니다.
+ * @template T
+ * @param {Response} res
+ * @returns {Promise<T>}
+ */
+async function readJsonOrThrow(res) {
+  const ct = res.headers.get("content-type") ?? "";
+  const isJson = ct.includes("application/json");
+  const body = isJson ? await res.json().catch(() => null) : await res.text().catch(() => "");
+
+  if (!res.ok) {
+    const message =
+      (body && typeof body === "object" && typeof body.message === "string" && body.message) ||
+      (typeof body === "string" && body) ||
+      `요청 실패 (HTTP ${res.status})`;
+    const err = new Error(message);
+    /** @type {any} */ (err).status = res.status;
+    throw err;
+  }
+
+  return /** @type {T} */ (body);
+}
+
+/**
+ * @param {string} [date] YYYY-MM-DD
+ * @returns {Promise<Todo[]>}
+ */
+async function fetchTodos(date) {
+  const url = date ? `${API_BASE}?date=${encodeURIComponent(date)}` : API_BASE;
+  const res = await fetch(url, { method: "GET" });
+  const data = await readJsonOrThrow(res);
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * @param {string} content
+ * @param {string} date YYYY-MM-DD
+ * @returns {Promise<Todo>}
+ */
+async function createTodo(content, date) {
+  const res = await fetch(API_BASE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content, date }),
+  });
+  return readJsonOrThrow(res);
+}
+
+/**
+ * @param {string} id
+ * @param {Partial<Pick<Todo, "content" | "isCompleted">>} patch
+ * @returns {Promise<Todo>}
+ */
+async function patchTodo(id, patch) {
+  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  return readJsonOrThrow(res);
+}
+
 /** @param {string} id */
-function todoItemRef(id) {
-  return ref(db, `todos/${id}`);
-}
-
-/**
- * Realtime Database에서 할 일 텍스트를 수정합니다.
- * @param {string} id
- * @param {string} text
- */
-async function saveTodoTextToFirebase(id, text) {
-  await update(todoItemRef(id), { text });
-}
-
-/**
- * Realtime Database에서 할 일을 삭제합니다.
- * @param {string} id
- */
-async function deleteTodoFromFirebase(id) {
-  await remove(todoItemRef(id));
+async function deleteTodoById(id) {
+  const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, { method: "DELETE" });
+  await readJsonOrThrow(res);
 }
 
 (() => {
   const SELECTED_DATE_KEY = "todo-app-selected-date";
 
   const form = document.getElementById("todo-form");
-  const input = document.getElementById("todo-input");
+  const input = /** @type {HTMLInputElement} */ (document.getElementById("todo-input"));
   const list = document.getElementById("todo-list");
   const emptyHint = document.getElementById("todo-empty");
   const loadingEl = document.getElementById("todo-loading");
+  const errorEl = document.getElementById("api-error");
 
-  const dateInput = /** @type {HTMLInputElement} */ (
+  const dateInput = /** @type {HTMLInputElement | null} */ (
     document.getElementById("todo-calendar-input")
   );
   const calendarLabelEl = document.getElementById("calendar-label");
   const calendarPrev = document.getElementById("calendar-prev");
   const calendarNext = document.getElementById("calendar-next");
 
-  /** @type {{ id: string, text: string, date?: string }[]} */
-  let allTodos = [];
+  /** @type {Todo[]} */
+  let todos = [];
 
   function readStoredDateOrToday() {
     const raw = localStorage.getItem(SELECTED_DATE_KEY);
@@ -119,10 +158,11 @@ async function deleteTodoFromFirebase(id) {
   }
 
   function setSelectedDate(next) {
+    if (!isYMD(next) || next === selectedDate) return;
     selectedDate = next;
     persistSelectedDate();
     syncCalendarUI();
-    render();
+    loadTodos();
   }
 
   calendarPrev?.addEventListener("click", () => setSelectedDate(shiftYMD(selectedDate, -1)));
@@ -134,65 +174,19 @@ async function deleteTodoFromFirebase(id) {
 
   syncCalendarUI();
 
-  /** Firebase 스냅샷 → 할 일 배열 */
-  function todosFromSnapshot(snapshot) {
-    const raw = snapshot.val();
-    const next = [];
-    if (raw && typeof raw === "object") {
-      for (const [id, v] of Object.entries(raw)) {
-        if (!(v && typeof v === "object" && typeof v.text === "string" && v.text.trim()))
-          continue;
-        /** @type {string | undefined} */
-        let date;
-        const d = /** @type {{ text?: string; date?: unknown }} */ (v).date;
-        if (typeof d === "string" && isYMD(d)) date = d.trim();
-        next.push({ id, text: v.text.trim(), date });
-      }
-      next.sort((a, b) => a.id.localeCompare(b.id));
-    }
-    return next;
+  function showError(message) {
+    if (!errorEl) return;
+    errorEl.textContent = message;
+    errorEl.hidden = !message;
   }
 
-  /** 선택한 날짜와 일치하거나 과거 형식(date 없음)인 항목만 표시 */
-  function todosForSelectedDate() {
-    return allTodos.filter((t) => !t.date || t.date === selectedDate);
+  function clearError() {
+    showError("");
   }
 
-  async function fetchTodoListFromFirebase() {
-    const snapshot = await get(todosRef);
-    return todosFromSnapshot(snapshot);
-  }
-
-  async function bootstrapTodoListFromFirebase() {
-    try {
-      allTodos = await fetchTodoListFromFirebase();
-    } catch (e) {
-      console.error("[Realtime Database] 목록 가져오기 실패:", e?.code ?? e, e?.message ?? e);
-      allTodos = [];
-    }
-
-    loadingEl.hidden = true;
-    render();
-
-    onValue(
-      todosRef,
-      (snapshot) => {
-        allTodos = todosFromSnapshot(snapshot);
-        loadingEl.hidden = true;
-        render();
-      },
-      (err) => {
-        console.error("[Realtime Database]", err?.code ?? err, err?.message ?? err);
-        allTodos = [];
-        loadingEl.hidden = true;
-        render();
-      }
-    );
-  }
-
-  function updateEmptyMessage(visibleCount) {
-    emptyHint.hidden = visibleCount > 0;
-    list.hidden = visibleCount === 0;
+  function updateEmptyMessage() {
+    emptyHint.hidden = todos.length > 0;
+    list.hidden = todos.length === 0;
   }
 
   /** @param {HTMLElement} container */
@@ -214,16 +208,23 @@ async function deleteTodoFromFirebase(id) {
 
   function render() {
     list.replaceChildren();
-    const todos = todosForSelectedDate();
 
     todos.forEach((todo) => {
       const li = document.createElement("li");
       li.className = "todo-item";
-      li.dataset.id = todo.id;
+      if (todo.isCompleted) li.classList.add("todo-item--done");
+      li.dataset.id = todo._id;
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "todo-item__checkbox";
+      checkbox.checked = !!todo.isCompleted;
+      checkbox.setAttribute("aria-label", `${todo.content} 완료 여부`);
+      checkbox.addEventListener("change", () => toggleCompleted(todo._id, checkbox.checked));
 
       const textSpan = document.createElement("span");
       textSpan.className = "todo-item__text";
-      textSpan.textContent = todo.text;
+      textSpan.textContent = todo.content;
 
       const actions = document.createElement("div");
       actions.className = "todo-item__actions";
@@ -232,23 +233,23 @@ async function deleteTodoFromFirebase(id) {
       editBtn.type = "button";
       editBtn.className = "btn btn--ghost todo-item__edit-btn";
       editBtn.textContent = "수정";
-      editBtn.setAttribute("aria-label", `${todo.text} 수정`);
+      editBtn.setAttribute("aria-label", `${todo.content} 수정`);
 
       const delBtn = document.createElement("button");
       delBtn.type = "button";
       delBtn.className = "btn btn--danger todo-item__delete-btn";
       delBtn.textContent = "삭제";
-      delBtn.setAttribute("aria-label", `${todo.text} 삭제`);
+      delBtn.setAttribute("aria-label", `${todo.content} 삭제`);
 
-      editBtn.addEventListener("click", () => enterEdit(li, todo.id));
-      delBtn.addEventListener("click", () => removeTodo(todo.id));
+      editBtn.addEventListener("click", () => enterEdit(li, todo._id));
+      delBtn.addEventListener("click", () => removeTodo(todo._id));
 
       actions.append(editBtn, delBtn);
-      li.append(textSpan, actions);
+      li.append(checkbox, textSpan, actions);
       list.append(li);
     });
 
-    updateEmptyMessage(todos.length);
+    updateEmptyMessage();
   }
 
   /**
@@ -256,7 +257,7 @@ async function deleteTodoFromFirebase(id) {
    * @param {string} id
    */
   function enterEdit(li, id) {
-    const todo = allTodos.find((t) => t.id === id);
+    const todo = todos.find((t) => t._id === id);
     if (!todo) return;
 
     const row = document.createElement("div");
@@ -265,7 +266,7 @@ async function deleteTodoFromFirebase(id) {
     const inp = document.createElement("input");
     inp.type = "text";
     inp.className = "todo-item__edit-input";
-    inp.value = todo.text;
+    inp.value = todo.content;
     inp.maxLength = 280;
 
     const saveBtn = document.createElement("button");
@@ -295,16 +296,20 @@ async function deleteTodoFromFirebase(id) {
         inp.focus();
         return;
       }
-      if (!allTodos.some((t) => t.id === id)) return;
+      if (!todos.some((t) => t._id === id)) return;
 
       saveBtn.disabled = true;
       cancelBtn.disabled = true;
 
       try {
-        await saveTodoTextToFirebase(id, next);
+        const updated = await patchTodo(id, { content: next });
+        const idx = todos.findIndex((t) => t._id === id);
+        if (idx !== -1) todos[idx] = { ...todos[idx], ...updated };
+        clearError();
         exitEdit(true);
       } catch (e) {
-        console.error("[Realtime Database] 수정 실패:", e?.code ?? e, e?.message ?? e);
+        console.error("[API] 수정 실패:", e);
+        showError(`수정 실패: ${e?.message ?? e}`);
         saveBtn.disabled = false;
         cancelBtn.disabled = false;
         inp.focus();
@@ -324,11 +329,43 @@ async function deleteTodoFromFirebase(id) {
     focusEditInput(li);
   }
 
+  /**
+   * @param {string} id
+   * @param {boolean} isCompleted
+   */
+  async function toggleCompleted(id, isCompleted) {
+    const idx = todos.findIndex((t) => t._id === id);
+    if (idx === -1) return;
+    const previous = todos[idx];
+
+    todos[idx] = { ...previous, isCompleted };
+    render();
+
+    try {
+      const updated = await patchTodo(id, { isCompleted });
+      const i2 = todos.findIndex((t) => t._id === id);
+      if (i2 !== -1) todos[i2] = { ...todos[i2], ...updated };
+      render();
+      clearError();
+    } catch (e) {
+      console.error("[API] 완료 상태 변경 실패:", e);
+      showError(`완료 상태 변경 실패: ${e?.message ?? e}`);
+      const i2 = todos.findIndex((t) => t._id === id);
+      if (i2 !== -1) todos[i2] = previous;
+      render();
+    }
+  }
+
+  /** @param {string} id */
   async function removeTodo(id) {
     try {
-      await deleteTodoFromFirebase(id);
+      await deleteTodoById(id);
+      todos = todos.filter((t) => t._id !== id);
+      render();
+      clearError();
     } catch (e) {
-      console.error("[Realtime Database] 삭제 실패:", e?.code ?? e, e?.message ?? e);
+      console.error("[API] 삭제 실패:", e);
+      showError(`삭제 실패: ${e?.message ?? e}`);
     }
   }
 
@@ -341,17 +378,46 @@ async function deleteTodoFromFirebase(id) {
     if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = true;
 
     try {
-      await set(push(todosRef), { text, date: selectedDate });
+      const created = await createTodo(text, selectedDate);
+      if (
+        created &&
+        typeof created._id === "string" &&
+        (!created.date || created.date === selectedDate)
+      ) {
+        todos = [created, ...todos];
+        render();
+      } else {
+        await loadTodos();
+      }
       input.value = "";
       input.focus();
+      clearError();
     } catch (err) {
-      console.error(err);
+      console.error("[API] 추가 실패:", err);
+      showError(`추가 실패: ${err?.message ?? err}`);
     } finally {
       if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
     }
   });
 
-  bootstrapTodoListFromFirebase();
-})();
+  async function loadTodos() {
+    loadingEl.hidden = false;
+    list.hidden = true;
+    emptyHint.hidden = true;
+    try {
+      todos = await fetchTodos(selectedDate);
+      clearError();
+    } catch (e) {
+      console.error("[API] 목록 가져오기 실패:", e);
+      showError(
+        `목록을 불러오지 못했습니다 (${e?.message ?? e}). 백엔드 서버(${API_BASE})가 실행 중이고 CORS가 허용되어 있는지 확인하세요.`
+      );
+      todos = [];
+    } finally {
+      loadingEl.hidden = true;
+      render();
+    }
+  }
 
-export { app };
+  loadTodos();
+})();
