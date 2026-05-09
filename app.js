@@ -3,7 +3,7 @@
  * 라우터가 `app.use("/todos", router)` 처럼 마운트돼 있다고 가정합니다.
  * 다른 경로(예: "/api/todos")이면 아래 한 줄만 바꿔주세요.
  */
-const API_BASE = "http://localhost:5000/todos";
+const API_BASE = "https://todo-backend-ptem.onrender.com/todos";
 
 /**
  * @typedef {Object} Todo
